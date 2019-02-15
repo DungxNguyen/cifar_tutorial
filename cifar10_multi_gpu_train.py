@@ -234,7 +234,7 @@ def train():
             # print(labels)
             duration = time.time() - start_time
 
-            if step % 100 == 0:
+            if step % 1000 == 0:
                 num_examples_per_step = FLAGS.batch_size * FLAGS.num_gpus
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = duration / FLAGS.num_gpus
@@ -244,7 +244,7 @@ def train():
                     'sec/batch)')
                 print(format_str % (datetime.now(), step, loss_value,
                                     examples_per_sec, sec_per_batch))
-            if step % 100 == 0:
+
                 summary = tf.Summary()
                 summary_str = sess.run(
                     summary_op, feed_dict={dropout: FLAGS.dropout})
@@ -271,12 +271,12 @@ def train():
 
                     # Prec@1
                     precisions = true_count / total_sample_count
-                    total_loss = total_loss / total_sample_count
+                    total_loss = total_loss / num_iter 
 
                     print('%s: step %s precision @ 1 = %.3f' % (datetime.now(), step, precisions))
                     
-                    precision_summary = tf.Summary(value=[tf.Summary.Value(tag='Precision @ 1',simple_value=precisions)])
-                    loss_summary = tf.Summary(value=[tf.Summary.Value(tag='Test Loss', simple_value=total_loss)])
+                    precision_summary = tf.Summary(value=[tf.Summary.Value(tag='test/Precision @ 1',simple_value=precisions)])
+                    loss_summary = tf.Summary(value=[tf.Summary.Value(tag='test/Test Loss', simple_value=total_loss)])
                     summary_writer.add_summary(precision_summary, step)
                     summary_writer.add_summary(loss_summary, step)
 
@@ -296,9 +296,14 @@ def test():
 
     top_k_op = tf.nn.in_top_k(softmax, labels, 1)
 
-    loss = cifar10.loss(softmax, labels)
+    labels_one_hot = tf.one_hot(labels, cifar10_input_dataset.NUM_CLASSES)
 
-    return top_k_op, loss
+    cross_entropy = -tf.reduce_sum(
+        tf.multiply(labels_one_hot, tf.log(tf.clip_by_value(softmax, 1e-10, 1.0))), 1)
+
+    cross_entropy_mean = tf.reduce_mean(cross_entropy, name='cross_entropy')
+
+    return top_k_op, cross_entropy_mean
 
 
 def main(argv=None):  # pylint: disable=unused-argument
